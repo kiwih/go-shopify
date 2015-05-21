@@ -10,35 +10,38 @@ import (
 )
 
 const (
-	baseUrlString = ".myshopify.com/"
+	baseURLString = ".myshopify.com/"
 )
 
+// Shopify models the shopify client parameters
 type Shopify struct {
 	shopifyDomain      string
 	shopifySecretToken string
 
-	Products []ShopifyProduct
+	Products []Product
 }
 
+// NewClient inits shopify client
 func NewClient(domain string, secrettoken string) Shopify {
 	shop := Shopify{shopifyDomain: domain, shopifySecretToken: secrettoken}
 	return shop
 }
 
+// LoadProducts returns first block of 250
 func (shopifyClient *Shopify) LoadProducts() {
-	//load first block of 250
-	urlStr := "admin/products.json?limit=250&page=1"
-	var page int = 1
 
-	var shopifyResponse = new(ShopifyResponse)
-	shopifyClient.MakeRequest("GET", urlStr, shopifyResponse)
+	urlStr := "admin/products.json?limit=250&page=1"
+	var page = 1
+
+	var shopifyResponse = new(productResponse)
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
 
 	shopifyClient.Products = shopifyResponse.Products[:]
 
 	//if response was == 250 products
 	if len(shopifyResponse.Products) == 250 {
 		//load every successive block
-		var done bool = false
+		var done = false
 		//var lastId int = shopifyResponse.Products[249].Id
 
 		for done == false {
@@ -47,8 +50,8 @@ func (shopifyClient *Shopify) LoadProducts() {
 			//get this thread to wait 0.5 seconds
 			time.Sleep(time.Second / 2)
 			urlStr = fmt.Sprintf("admin/products.json?limit=250&page=%v", page)
-			shopifyResponse = new(ShopifyResponse)
-			shopifyClient.MakeRequest("GET", urlStr, shopifyResponse)
+			shopifyResponse = new(productResponse)
+			shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
 			if len(shopifyResponse.Products) > 0 {
 				shopifyClient.Products = append(shopifyClient.Products, shopifyResponse.Products[:]...)
 				//lastId = shopifyResponse.Products[len(shopifyResponse.Products)-1].Id
@@ -63,19 +66,21 @@ func (shopifyClient *Shopify) LoadProducts() {
 
 }
 
-func (shopifyClient *Shopify) GetLiveProduct(shopifyId string) ShopifyProduct {
-	urlStr := "admin/products/" + shopifyId + ".json"
-	var shopifyResponse = new(ShopifyResponse)
+// GetLiveProduct gets product by ID
+func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
+	urlStr := "admin/products/" + shopifyID + ".json"
+	var shopifyResponse = new(productResponse)
 
-	shopifyClient.MakeRequest("GET", urlStr, shopifyResponse)
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
 
-	fmt.Printf("%v\n", shopifyResponse.Product.Id)
+	fmt.Printf("%v\n", shopifyResponse.SingleProduct.ID)
 
-	return shopifyResponse.Product
+	return shopifyResponse.SingleProduct
 }
 
-func (shopifyClient *Shopify) MakeRequest(method string, urlStr string, body interface{}) {
-	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseUrlString, urlStr)
+func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}) {
+	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
+	log.Printf("Request URL: %s", url)
 	client := &http.Client{}
 	buf := new(bytes.Buffer)
 	r, err := http.NewRequest(method, url, buf)
@@ -92,6 +97,7 @@ func (shopifyClient *Shopify) MakeRequest(method string, urlStr string, body int
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(body)
+
 	if err != nil {
 		fmt.Print(err)
 		fmt.Print(resp.Body)

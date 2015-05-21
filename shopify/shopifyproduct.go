@@ -69,32 +69,34 @@
 
 package shopify
 
-type ShopifyProduct struct {
-	BodyHtml       string                  `json:"body_html,omitempty"`
-	CreatedAt      string                  `json:"created_at,omitempty"`
-	Handle         string                  `json:"handle,omitempty"`
-	Id             int                     `json:"id,omitempty"`
-	ProductType    string                  `json:"product_type,omitempty"`
-	PublishedAt    string                  `json:"published_at,omitempty"`
-	PublishedScope string                  `json:"published_scope,omitempty"`
-	TemplateSuffix string                  `json:"template_suffix,omitempty"`
-	Title          string                  `json:"title,omitempty"`
-	UpdatedAt      string                  `json:"updated_at,omitempty"`
-	Vendor         string                  `json:"vendor,omitempty"`
-	Tags           string                  `json:"tags,omitempty"`
-	Variants       []ShopifyProductVariant `json:"variants,omitempty"`
-	Options        []ShopifyProductOption  `json:"options,omitempty"`
-	Images         []ShopifyProductImage   `json:"images,omitempty"`
-	Image          ShopifyProductImage     `json:"image,omitempty"`
+// Product models the shopify product model
+type Product struct {
+	BodyHTML       string           `json:"body_html,omitempty"`
+	CreatedAt      string           `json:"created_at,omitempty"`
+	Handle         string           `json:"handle,omitempty"`
+	ID             int              `json:"id,omitempty"`
+	ProductType    string           `json:"product_type,omitempty"`
+	PublishedAt    string           `json:"published_at,omitempty"`
+	PublishedScope string           `json:"published_scope,omitempty"`
+	TemplateSuffix string           `json:"template_suffix,omitempty"`
+	Title          string           `json:"title,omitempty"`
+	UpdatedAt      string           `json:"updated_at,omitempty"`
+	Vendor         string           `json:"vendor,omitempty"`
+	Tags           string           `json:"tags,omitempty"`
+	Variants       []ProductVariant `json:"variants,omitempty"`
+	Options        []ProductOption  `json:"options,omitempty"`
+	Images         []ProductImage   `json:"images,omitempty"`
+	Image          ProductImage     `json:"image,omitempty"`
 }
 
-type ShopifyProductVariant struct {
+// ProductVariant models the shopify product variant
+type ProductVariant struct {
 	Barcode              string  `json:"barcode,omitempty"`
 	CompareAtPrice       string  `json:"compare_at_price,omitempty"`
 	CreatedAt            string  `json:"created_at,omitempty"`
 	FulfillmentService   string  `json:"fulfillment_service,omitempty"`
 	Grams                int     `json:"grams,omitempty"`
-	Id                   int     `json:"id,omitempty"`
+	ID                   int     `json:"id,omitempty"`
 	InventoryManagement  string  `json:"inventory_management,omitempty"`
 	InventoryPolicy      string  `json:"inventory_policy,omitempty"`
 	Option1              string  `json:"option1,omitempty"`
@@ -102,7 +104,7 @@ type ShopifyProductVariant struct {
 	Option3              string  `json:"option3,omitempty"`
 	Position             int     `json:"position,omitempty"`
 	Price                string  `json:"price,omitempty"`
-	ProductId            int     `json:"product_id,omitempty"`
+	ProductID            int     `json:"product_id,omitempty"`
 	RequiresShipping     bool    `json:"requires_shopping,omitempty"`
 	Sku                  string  `json:"sku,omitempty"`
 	Taxable              bool    `json:"taxable,omitempty"`
@@ -112,23 +114,26 @@ type ShopifyProductVariant struct {
 	OldInventoryQuantity int     `json:"old_inventory_quantity,omitempty"`
 }
 
-type ShopifyProductOption struct {
-	Id        int    `json:"id,omitempty"`
+// ProductOption models the shopify product option
+type ProductOption struct {
+	ID        int    `json:"id,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Position  int    `json:"position,omitempty"`
-	ProductId int    `json:"product_id,omitempty"`
+	ProductID int    `json:"product_id,omitempty"`
 }
 
-type ShopifyProductImage struct {
+// ProductImage models the shopify product image object
+type ProductImage struct {
 	CreatedAt string `json:"created_at,omitempty"`
-	Id        int    `json:"id,omitempty"`
+	ID        int    `json:"id,omitempty"`
 	Position  int    `json:"position,omitempty"`
-	ProductId int    `json:"product_id,omitempty"`
-	UpdatedAt string `json:"updated_at",omitempty"`
+	ProductID int    `json:"product_id,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 	Src       string `json:"src,omitempty"`
 }
 
-type ShopifyResponse struct {
-	Products []ShopifyProduct `json:"products,omitempty"`
-	Product  ShopifyProduct   `json:"product,omitempty"`
+// Response models the shopify API response
+type productResponse struct {
+	Products      []Product `json:"products,omitempty"`
+	SingleProduct Product   `json:"product,omitempty"`
 }
