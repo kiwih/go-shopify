@@ -30,4 +30,4 @@ To initialize a client you need the shopify private app password
 shop := shopify.NewClient("your-shop-domain", "app-password")
 ```
 
-See functions used in example/example.go 
+See client functions used in example/example.go 
