@@ -78,6 +78,18 @@ func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
 	return shopifyResponse.SingleProduct
 }
 
+// GetOrder gets order by ID
+func (shopifyClient *Shopify) GetOrder(shopifyID string) Order {
+	urlStr := "admin/orders/" + shopifyID + ".json"
+	var shopifyResponse = new(orderResponse)
+
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
+
+	fmt.Printf("%v\n", shopifyResponse.SingleOrder.ID)
+
+	return shopifyResponse.SingleOrder
+}
+
 func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}) {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
 	log.Printf("Request URL: %s", url)
@@ -95,6 +107,9 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	if err != nil {
 		fmt.Printf("Error executing request : %s", err)
 	}
+
+	// bodyResp, _ := ioutil.ReadAll(resp.Body)
+	// fmt.Printf("RESPONSE BODY: %#v", string(bodyResp))
 
 	err = json.NewDecoder(resp.Body).Decode(body)
 
