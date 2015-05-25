@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func (shopifyClient *Shopify) LoadProducts() {
 		//var lastId int = shopifyResponse.Products[249].Id
 
 		for done == false {
-			log.Printf("Shopify: Loaded page %v, that's %v products!\n", page, len(shopifyClient.Products))
+			log.Printf("[LoadProducts] - Shopify: Loaded page %v, that's %v products!\n", page, len(shopifyClient.Products))
 			page++
 			//get this thread to wait 0.5 seconds
 			time.Sleep(time.Second / 2)
@@ -73,7 +74,7 @@ func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
 
 	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
 
-	fmt.Printf("%v\n", shopifyResponse.SingleProduct.ID)
+	fmt.Printf("[GetLiveProduct] -  Product ID: %s\n", strconv.Itoa(shopifyResponse.SingleProduct.ID))
 
 	return shopifyResponse.SingleProduct
 }
@@ -85,14 +86,26 @@ func (shopifyClient *Shopify) GetOrder(shopifyID string) Order {
 
 	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
 
-	fmt.Printf("%v\n", shopifyResponse.SingleOrder.ID)
+	fmt.Printf("[GetOrder] - Order id: %s\n", strconv.Itoa(shopifyResponse.SingleOrder.ID))
+
+	return shopifyResponse.SingleOrder
+}
+
+// CancelOrder deletes order by ID
+func (shopifyClient *Shopify) CancelOrder(shopifyID string) Order {
+	urlStr := "admin/orders/" + shopifyID + "/cancel.json"
+	var shopifyResponse = new(orderResponse)
+
+	shopifyClient.makeRequest("POST", urlStr, shopifyResponse)
+
+	//fmt.Printf("[CancelOrder] - Order: %v\n", shopifyResponse)
 
 	return shopifyResponse.SingleOrder
 }
 
 func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}) {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
-	log.Printf("Request URL: %s", url)
+	log.Printf("[makeRequest] - Request URL: %s", url)
 	client := &http.Client{}
 	buf := new(bytes.Buffer)
 	r, err := http.NewRequest(method, url, buf)
@@ -100,12 +113,12 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	resp, err := client.Do(r)
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("404 on executing request: %s", url)
+		fmt.Printf("[makeRequest] - 404 on executing request: %s", url)
 	} else if resp.StatusCode == 429 {
-		fmt.Printf("Rate limited!")
+		fmt.Printf("[makeRequest] - Rate limited!")
 	}
 	if err != nil {
-		fmt.Printf("Error executing request : %s", err)
+		fmt.Printf("[makeRequest] - Error executing request : %s", err)
 	}
 
 	// bodyResp, _ := ioutil.ReadAll(resp.Body)
@@ -114,7 +127,7 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	err = json.NewDecoder(resp.Body).Decode(body)
 
 	if err != nil {
-		fmt.Print(err)
-		fmt.Print(resp.Body)
+		fmt.Printf("\n[makeRequest] - Decoding error: %#v", err)
+		fmt.Printf("\n[makeRequest] - Response: %#v", resp.Body)
 	}
 }
