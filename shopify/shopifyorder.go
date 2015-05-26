@@ -249,21 +249,22 @@ type Fulfillment struct {
 
 // Order maps the shopify Order
 type Order struct {
-	ID                int           `json:"id,omitempty"`
-	Customer          Customer      `json:"customer"`
-	Email             string        `json:"email,omitempty"`
-	BillingAddress    Address       `json:"billing_address"`
-	ShippingAddress   Address       `json:"shipping_address"`
-	Shipping          []Shipping    `json:"shipping_lines"`
-	DiscountCodes     []string      `json:"discount_codes,omitempty"`
-	Note              string        `json:"note,omitempty"` //AutoDesk pspReferenceNumber here
-	Items             []Item        `json:"line_items"`
-	Fulfillments      []Fulfillment `json:"fulfillments,omitempty"`
-	FulfillmentStatus string        `json:"fulfillment_status,omitempty"`
-	TotalPrice        string        `json:"total_price,omitempty"`
-	TotalTax          string        `json:"total_tax,omitempty"`
-	CreatedAt         string        `json:"created_at,omitempty"`   //"2015-05-18T19:09:32-04:00"
-	CancelledAt       string        `json:"cancelled_at,omitempty"` //"2015-05-18T19:09:32-04:00"
+	ID                 int           `json:"id,omitempty"`
+	Customer           Customer      `json:"customer"`
+	Email              string        `json:"email,omitempty"`
+	BillingAddress     Address       `json:"billing_address"`
+	ShippingAddress    Address       `json:"shipping_address"`
+	Shipping           []Shipping    `json:"shipping_lines"`
+	DiscountCodes      []string      `json:"discount_codes,omitempty"`
+	Note               string        `json:"note,omitempty"` //AutoDesk pspReferenceNumber here
+	Items              []Item        `json:"line_items"`
+	Fulfillments       []Fulfillment `json:"fulfillments,omitempty"`
+	FulfillmentStatus  string        `json:"fulfillment_status,omitempty"`
+	TotalPrice         string        `json:"total_price,omitempty"`
+	TotalTax           string        `json:"total_tax,omitempty"`
+	CreatedAt          string        `json:"created_at,omitempty"`   //"2015-05-18T19:09:32-04:00"
+	CancelledAt        string        `json:"cancelled_at,omitempty"` //"2015-05-18T19:09:32-04:00"
+	InventoryBehaviour string        `json:"inventory_behaviour,omitempty"`
 }
 
 // OrderResponse models the shopify API response for order

@@ -112,7 +112,7 @@ func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) Order {
 
 	shopifyClient.makeRequest("POST", urlStr, shopifyResponse, string(orderString))
 
-	fmt.Printf("[PlaceOrder] - Order: %v\n", shopifyResponse.SingleOrder)
+	//fmt.Printf("[PlaceOrder] - Order: %v\n", shopifyResponse.SingleOrder)
 
 	return shopifyResponse.SingleOrder
 }
