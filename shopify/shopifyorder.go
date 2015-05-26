@@ -198,8 +198,7 @@ package shopify
 
 // Address maps the shopify Order Customer Address
 type Address struct {
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
+	Name        string `json:"name"`
 	Company     string `json:"company,omitempty"`
 	Address1    string `json:"address1"`
 	Address2    string `json:"address2,omitempty"`
@@ -235,9 +234,10 @@ type Item struct {
 	Sku      string `json:"sku"`
 	Quantity int    `json:"quantity"`
 	//Data     string `json:"data"`
-	Name     string `json:"name"`
-	Price    string `json:"price"`
-	TaxLines []Tax  `json:"tax_lines"`
+	Name      string `json:"name"`
+	Price     string `json:"price"`
+	TaxLines  []Tax  `json:"tax_lines"`
+	VariantID int    `json:"variant_id"`
 }
 
 // Fulfillment maps the shopify Order Fulfillments
@@ -249,8 +249,9 @@ type Fulfillment struct {
 
 // Order maps the shopify Order
 type Order struct {
-	ID                int           `json:"id"`
+	ID                int           `json:"id,omitempty"`
 	Customer          Customer      `json:"customer"`
+	Email             string        `json:"email,omitempty"`
 	BillingAddress    Address       `json:"billing_address"`
 	ShippingAddress   Address       `json:"shipping_address"`
 	Shipping          []Shipping    `json:"shipping_lines"`
@@ -259,13 +260,13 @@ type Order struct {
 	Items             []Item        `json:"line_items"`
 	Fulfillments      []Fulfillment `json:"fulfillments,omitempty"`
 	FulfillmentStatus string        `json:"fulfillment_status,omitempty"`
-	TotalPrice        string        `json:"total_price"`
-	TotalTax          string        `json:"total_tax"`
+	TotalPrice        string        `json:"total_price,omitempty"`
+	TotalTax          string        `json:"total_tax,omitempty"`
 	CreatedAt         string        `json:"created_at,omitempty"`   //"2015-05-18T19:09:32-04:00"
 	CancelledAt       string        `json:"cancelled_at,omitempty"` //"2015-05-18T19:09:32-04:00"
 }
 
-// orderResponse models the shopify API response for order
-type orderResponse struct {
+// OrderResponse models the shopify API response for order
+type OrderResponse struct {
 	SingleOrder Order `json:"order"`
 }

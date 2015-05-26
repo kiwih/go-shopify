@@ -35,7 +35,7 @@ func (shopifyClient *Shopify) LoadProducts() {
 	var page = 1
 
 	var shopifyResponse = new(productResponse)
-	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
 
 	shopifyClient.Products = shopifyResponse.Products[:]
 
@@ -52,7 +52,7 @@ func (shopifyClient *Shopify) LoadProducts() {
 			time.Sleep(time.Second / 2)
 			urlStr = fmt.Sprintf("admin/products.json?limit=250&page=%v", page)
 			shopifyResponse = new(productResponse)
-			shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
+			shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
 			if len(shopifyResponse.Products) > 0 {
 				shopifyClient.Products = append(shopifyClient.Products, shopifyResponse.Products[:]...)
 				//lastId = shopifyResponse.Products[len(shopifyResponse.Products)-1].Id
@@ -72,7 +72,7 @@ func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
 	urlStr := "admin/products/" + shopifyID + ".json"
 	var shopifyResponse = new(productResponse)
 
-	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
 
 	fmt.Printf("[GetLiveProduct] -  Product ID: %s\n", strconv.Itoa(shopifyResponse.SingleProduct.ID))
 
@@ -82,9 +82,9 @@ func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
 // GetOrder gets order by ID
 func (shopifyClient *Shopify) GetOrder(shopifyID string) Order {
 	urlStr := "admin/orders/" + shopifyID + ".json"
-	var shopifyResponse = new(orderResponse)
+	var shopifyResponse = new(OrderResponse)
 
-	shopifyClient.makeRequest("GET", urlStr, shopifyResponse)
+	shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
 
 	fmt.Printf("[GetOrder] - Order id: %s\n", strconv.Itoa(shopifyResponse.SingleOrder.ID))
 
@@ -94,22 +94,44 @@ func (shopifyClient *Shopify) GetOrder(shopifyID string) Order {
 // CancelOrder deletes order by ID
 func (shopifyClient *Shopify) CancelOrder(shopifyID string) Order {
 	urlStr := "admin/orders/" + shopifyID + "/cancel.json"
-	var shopifyResponse = new(orderResponse)
+	var shopifyResponse = new(OrderResponse)
 
-	shopifyClient.makeRequest("POST", urlStr, shopifyResponse)
+	shopifyClient.makeRequest("POST", urlStr, shopifyResponse, "")
 
 	//fmt.Printf("[CancelOrder] - Order: %v\n", shopifyResponse)
 
 	return shopifyResponse.SingleOrder
 }
 
-func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}) {
+// PlaceOrder creates a new order
+func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) Order {
+	urlStr := "admin/orders.json"
+	var shopifyResponse = new(OrderResponse)
+
+	orderString, _ := json.Marshal(order)
+
+	shopifyClient.makeRequest("POST", urlStr, shopifyResponse, string(orderString))
+
+	fmt.Printf("[PlaceOrder] - Order: %v\n", shopifyResponse.SingleOrder)
+
+	return shopifyResponse.SingleOrder
+}
+
+func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}, payload string) {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
 	log.Printf("[makeRequest] - Request URL: %s", url)
 	client := &http.Client{}
 	buf := new(bytes.Buffer)
+
+	if payload != "" {
+		//fmt.Printf("\n\n\nPAYLOAD string: %#v", payload)
+		buf = bytes.NewBuffer([]byte(payload))
+	}
 	r, err := http.NewRequest(method, url, buf)
+
+	r.Header.Set("Content-Type", "application/json; charset=utf-8")
 	r.Header.Add("X-Shopify-Access-Token", shopifyClient.shopifySecretToken)
+
 	resp, err := client.Do(r)
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
@@ -122,7 +144,7 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	}
 
 	// bodyResp, _ := ioutil.ReadAll(resp.Body)
-	// fmt.Printf("RESPONSE BODY: %#v", string(bodyResp))
+	// fmt.Printf("\n\nRESPONSE BODY: %#v", string(bodyResp))
 
 	err = json.NewDecoder(resp.Body).Decode(body)
 
