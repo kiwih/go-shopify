@@ -265,6 +265,7 @@ type Order struct {
 	CreatedAt          string        `json:"created_at,omitempty"`   //"2015-05-18T19:09:32-04:00"
 	CancelledAt        string        `json:"cancelled_at,omitempty"` //"2015-05-18T19:09:32-04:00"
 	InventoryBehaviour string        `json:"inventory_behaviour,omitempty"`
+	FinancialStatus    string        `json:"financial_status,omitempty"`
 }
 
 // OrderResponse models the shopify API response for order
