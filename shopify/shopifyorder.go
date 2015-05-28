@@ -272,3 +272,23 @@ type Order struct {
 type OrderResponse struct {
 	SingleOrder Order `json:"order"`
 }
+
+// ShippingRate models the shopify ShippingRate object
+type ShippingRate struct {
+	Name          string   `json:"name"`
+	Code          string   `json:"code"`
+	Price         string   `json:"price"`
+	Source        string   `json:"source"`
+	DeliveryDate  string   `json:"delivery_date"`
+	DeliveryRange []string `json:"delivery_range"`
+	DeliveryDays  []int    `json:"delivery_days"`
+}
+
+// ShippingRatesResponse models the shopify ShippingRates array
+type ShippingRatesResponse struct {
+	ShippingRates []ShippingRate `json:"shipping_rates"`
+	// Fields For Error cases responses:
+	Zip      []string `json:"zip,omitempty"`
+	Province []string `json:"province,omitempty"`
+	Country  []string `json:"country,omitempty"`
+}

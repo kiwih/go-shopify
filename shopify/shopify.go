@@ -3,10 +3,14 @@ package shopify
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -117,9 +121,108 @@ func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) Order {
 	return shopifyResponse.SingleOrder
 }
 
+// ShippingOptions returns shipping options and rates for a given shipping address
+func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, error) {
+
+	var itemsInfo []string
+
+	cartURLStr := "cart/"
+
+	// Create CART
+	for _, itemObj := range order.Items {
+		itemsInfo = append(itemsInfo, fmt.Sprintf("%d:%d", itemObj.VariantID, itemObj.Quantity))
+	}
+
+	itemsInCartURLStr := cartURLStr + strings.Join(itemsInfo, ",")
+
+	completeURL := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, itemsInCartURLStr)
+	log.Printf("[ShippingOptions] - Request URL: %s", completeURL)
+	cookieJar, _ := cookiejar.New(nil)
+
+	client := &http.Client{
+		Jar: cookieJar,
+	}
+
+	r, err := http.NewRequest("GET", completeURL, nil)
+	resp, err := client.Do(r)
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		fmt.Printf("[ShippingOptions] - 404 on executing request: %s", completeURL)
+	} else if resp.StatusCode == 429 {
+		fmt.Printf("[ShippingOptions] - Rate limited!")
+	}
+	if err != nil {
+		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+	}
+
+	// GET shipping Options given the cart (cookies used)
+	address := order.ShippingAddress
+
+	urlStr := cartURLStr + "shipping_rates.json?"
+
+	v := url.Values{}
+	v.Set("shipping_address[zip]", address.PostalCode)
+	v.Add("shipping_address[country]", address.CountryCode)
+	v.Add("shipping_address[province]", address.State)
+	v.Encode()
+
+	urlStr = urlStr + v.Encode()
+
+	completeURL = fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
+	log.Printf("\n\n[ShippingOptions] - Request URL: %s", completeURL)
+
+	r, err = http.NewRequest("GET", completeURL, nil)
+
+	resp, err = client.Do(r)
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		fmt.Printf("[ShippingOptions] - 404 on executing request: %s", completeURL)
+	} else if resp.StatusCode == 429 {
+		fmt.Printf("[ShippingOptions] - Rate limited!")
+	}
+	if err != nil {
+		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+	}
+
+	//bodyResp, _ := ioutil.ReadAll(resp.Body)
+	//fmt.Printf("\n\n *****RESPONSE: %#v\n", string(bodyResp))
+	var shopifyResponse = new(ShippingRatesResponse)
+	err = json.NewDecoder(resp.Body).Decode(shopifyResponse)
+
+	if err != nil {
+		fmt.Printf("\n[ShippingOptions] - Decoding error: %#v", err)
+		fmt.Printf("\n[ShippingOptions] - Response: %#v", resp.Body)
+	}
+
+	// Address not supported error handling
+	if shopifyResponse.Country != nil || shopifyResponse.Zip != nil || shopifyResponse.Province != nil {
+		var errorsArray []string
+		errorMessageStr := "Address Not supported: "
+
+		if shopifyResponse.Country != nil {
+			errorsArray = append(errorsArray, address.CountryCode+" "+shopifyResponse.Country[0])
+		}
+		if shopifyResponse.Zip != nil {
+			errorsArray = append(errorsArray, address.PostalCode+" "+shopifyResponse.Zip[0])
+		}
+		if shopifyResponse.Province != nil {
+			errorsArray = append(errorsArray, address.State+" "+shopifyResponse.Province[0])
+		}
+		errorMessageStr = errorMessageStr + strings.Join(errorsArray, ", ")
+		addressNotSupported := errors.New(errorMessageStr)
+		return shopifyResponse.ShippingRates, addressNotSupported
+	}
+
+	return shopifyResponse.ShippingRates, nil
+}
+
 func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}, payload string) {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
-	log.Printf("[makeRequest] - Request URL: %s", url)
+	log.Printf("\n\n[makeRequest] - Request URL: %s", url)
 	client := &http.Client{}
 	buf := new(bytes.Buffer)
 
@@ -133,6 +236,7 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	r.Header.Add("X-Shopify-Access-Token", shopifyClient.shopifySecretToken)
 
 	resp, err := client.Do(r)
+
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		fmt.Printf("[makeRequest] - 404 on executing request: %s", url)
@@ -143,8 +247,8 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 		fmt.Printf("[makeRequest] - Error executing request : %s", err)
 	}
 
-	// bodyResp, _ := ioutil.ReadAll(resp.Body)
-	// fmt.Printf("\n\nRESPONSE BODY: %#v", string(bodyResp))
+	//bodyResp, _ := ioutil.ReadAll(resp.Body)
+	//fmt.Printf("\n\n *****RESPONSE: %#v\n", string(bodyResp))
 
 	err = json.NewDecoder(resp.Body).Decode(body)
 
