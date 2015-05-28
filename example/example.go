@@ -21,4 +21,11 @@ func main() {
 
 	fmt.Printf("%v\n", prod.Handle)
 	fmt.Printf("%v\n", order)
+
+	removedOrder := shop.CancelOrder("123456")
+
+	fmt.Printf("%v\n", removedOrder)
+
+	// shop.PlaceOrder(order)
+	// shop.ShippingOptions(order)
 }
