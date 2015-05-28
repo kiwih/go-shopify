@@ -72,59 +72,71 @@ func (shopifyClient *Shopify) LoadProducts() {
 }
 
 // GetLiveProduct gets product by ID
-func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) Product {
+func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) (Product, error) {
 	urlStr := "admin/products/" + shopifyID + ".json"
 	var shopifyResponse = new(productResponse)
 
-	shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
-
+	err := shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
+	if err != nil {
+		return shopifyResponse.SingleProduct, err
+	}
 	fmt.Printf("[GetLiveProduct] -  Product ID: %s\n", strconv.Itoa(shopifyResponse.SingleProduct.ID))
 
-	return shopifyResponse.SingleProduct
+	return shopifyResponse.SingleProduct, nil
 }
 
 // GetOrder gets order by ID
-func (shopifyClient *Shopify) GetOrder(shopifyID string) Order {
+func (shopifyClient *Shopify) GetOrder(shopifyID string) (Order, error) {
 	urlStr := "admin/orders/" + shopifyID + ".json"
 	var shopifyResponse = new(OrderResponse)
 
-	shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
+	err := shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
+	if err != nil {
+		return shopifyResponse.SingleOrder, err
+	}
 
 	fmt.Printf("[GetOrder] - Order id: %s\n", strconv.Itoa(shopifyResponse.SingleOrder.ID))
 
-	return shopifyResponse.SingleOrder
+	return shopifyResponse.SingleOrder, nil
 }
 
 // CancelOrder deletes order by ID
-func (shopifyClient *Shopify) CancelOrder(shopifyID string) Order {
+func (shopifyClient *Shopify) CancelOrder(shopifyID string) (Order, error) {
 	urlStr := "admin/orders/" + shopifyID + "/cancel.json"
 	var shopifyResponse = new(OrderResponse)
 
-	shopifyClient.makeRequest("POST", urlStr, shopifyResponse, "")
+	err := shopifyClient.makeRequest("POST", urlStr, shopifyResponse, "")
+	if err != nil {
+		return shopifyResponse.SingleOrder, err
+	}
 
 	//fmt.Printf("[CancelOrder] - Order: %v\n", shopifyResponse)
 
-	return shopifyResponse.SingleOrder
+	return shopifyResponse.SingleOrder, nil
 }
 
 // PlaceOrder creates a new order
-func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) Order {
+func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) (Order, error) {
 	urlStr := "admin/orders.json"
 	var shopifyResponse = new(OrderResponse)
 
 	orderString, _ := json.Marshal(order)
 
-	shopifyClient.makeRequest("POST", urlStr, shopifyResponse, string(orderString))
+	err := shopifyClient.makeRequest("POST", urlStr, shopifyResponse, string(orderString))
+	if err != nil {
+		return shopifyResponse.SingleOrder, err
+	}
 
 	//fmt.Printf("[PlaceOrder] - Order: %v\n", shopifyResponse.SingleOrder)
 
-	return shopifyResponse.SingleOrder
+	return shopifyResponse.SingleOrder, nil
 }
 
 // ShippingOptions returns shipping options and rates for a given shipping address
 func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, error) {
 
 	var itemsInfo []string
+	var shopifyResponse = new(ShippingRatesResponse)
 
 	cartURLStr := "cart/"
 
@@ -148,13 +160,9 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("[ShippingOptions] - 404 on executing request: %s", completeURL)
-	} else if resp.StatusCode == 429 {
-		fmt.Printf("[ShippingOptions] - Rate limited!")
-	}
 	if err != nil {
 		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+		return shopifyResponse.ShippingRates, err
 	}
 
 	// GET shipping Options given the cart (cookies used)
@@ -179,23 +187,19 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("[ShippingOptions] - 404 on executing request: %s", completeURL)
-	} else if resp.StatusCode == 429 {
-		fmt.Printf("[ShippingOptions] - Rate limited!")
-	}
 	if err != nil {
 		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+		return shopifyResponse.ShippingRates, err
 	}
 
 	//bodyResp, _ := ioutil.ReadAll(resp.Body)
 	//fmt.Printf("\n\n *****RESPONSE: %#v\n", string(bodyResp))
-	var shopifyResponse = new(ShippingRatesResponse)
 	err = json.NewDecoder(resp.Body).Decode(shopifyResponse)
 
 	if err != nil {
 		fmt.Printf("\n[ShippingOptions] - Decoding error: %#v", err)
 		fmt.Printf("\n[ShippingOptions] - Response: %#v", resp.Body)
+		return shopifyResponse.ShippingRates, err
 	}
 
 	// Address not supported error handling
@@ -220,7 +224,7 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 	return shopifyResponse.ShippingRates, nil
 }
 
-func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}, payload string) {
+func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}, payload string) error {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
 	log.Printf("\n\n[makeRequest] - Request URL: %s", url)
 	client := &http.Client{}
@@ -239,12 +243,15 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("[makeRequest] - 404 on executing request: %s", url)
+		fmt.Printf("[makeRequest] - 404 on executing request: %s\n", url)
 	} else if resp.StatusCode == 429 {
-		fmt.Printf("[makeRequest] - Rate limited!")
+		fmt.Printf("[makeRequest] - Rate limited!\n")
+		rateLimitErr := errors.New("API rate limit exceeded")
+		return rateLimitErr
 	}
 	if err != nil {
 		fmt.Printf("[makeRequest] - Error executing request : %s", err)
+		return err
 	}
 
 	//bodyResp, _ := ioutil.ReadAll(resp.Body)
@@ -255,5 +262,8 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 	if err != nil {
 		fmt.Printf("\n[makeRequest] - Decoding error: %#v", err)
 		fmt.Printf("\n[makeRequest] - Response: %#v", resp.Body)
+		return err
 	}
+
+	return nil
 }
