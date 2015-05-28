@@ -26,6 +26,6 @@ func main() {
 
 	fmt.Printf("%v\n", removedOrder)
 
-	// shop.PlaceOrder(order)
-	// shop.ShippingOptions(order)
+	// order = shop.PlaceOrder(order)
+	// shippingRates = shop.ShippingOptions(order)
 }
