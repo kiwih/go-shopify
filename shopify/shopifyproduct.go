@@ -1,4 +1,21 @@
 /*
+	Copyright 2015 Arduino LLC (http://www.arduino.cc/)
+
+	This file is part of go-shopify.
+
+	go-shopify is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, version 3 of the License,
+	go-shopify is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with go-shopify.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
 
 {
 "body_html": null,
