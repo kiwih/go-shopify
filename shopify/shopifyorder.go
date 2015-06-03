@@ -254,7 +254,7 @@ type Item struct {
 	Name      string `json:"name"`
 	Price     string `json:"price"`
 	TaxLines  []Tax  `json:"tax_lines"`
-	VariantID int    `json:"variant_id"`
+	VariantID int64  `json:"variant_id"`
 }
 
 // Fulfillment maps the shopify Order Fulfillments
