@@ -22,13 +22,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (
@@ -67,7 +67,7 @@ func (shopifyClient *Shopify) LoadProducts() {
 		//var lastId int = shopifyResponse.Products[249].Id
 
 		for done == false {
-			log.Printf("[LoadProducts] - Shopify: Loaded page %v, that's %v products!\n", page, len(shopifyClient.Products))
+			jww.INFO.Printf("[LoadProducts] - Shopify: Loaded page %v, that's %v products!\n", page, len(shopifyClient.Products))
 			page++
 			//get this thread to wait 0.5 seconds
 			time.Sleep(time.Second / 2)
@@ -97,7 +97,7 @@ func (shopifyClient *Shopify) GetLiveProduct(shopifyID string) (Product, error) 
 	if err != nil {
 		return shopifyResponse.SingleProduct, err
 	}
-	fmt.Printf("[GetLiveProduct] -  Product ID: %s\n", strconv.Itoa(shopifyResponse.SingleProduct.ID))
+	jww.INFO.Printf("[GetLiveProduct] -  Product ID: %s\n", strconv.Itoa(shopifyResponse.SingleProduct.ID))
 
 	return shopifyResponse.SingleProduct, nil
 }
@@ -112,7 +112,7 @@ func (shopifyClient *Shopify) GetOrder(shopifyID string) (Order, error) {
 		return shopifyResponse.SingleOrder, err
 	}
 
-	fmt.Printf("[GetOrder] - Order id: %s\n", strconv.Itoa(shopifyResponse.SingleOrder.ID))
+	jww.INFO.Printf("[GetOrder] - Order id: %s\n", strconv.Itoa(shopifyResponse.SingleOrder.ID))
 
 	return shopifyResponse.SingleOrder, nil
 }
@@ -126,8 +126,6 @@ func (shopifyClient *Shopify) CancelOrder(shopifyID string) (Order, error) {
 	if err != nil {
 		return shopifyResponse.SingleOrder, err
 	}
-
-	//fmt.Printf("[CancelOrder] - Order: %v\n", shopifyResponse)
 
 	return shopifyResponse.SingleOrder, nil
 }
@@ -143,8 +141,6 @@ func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) (Order, error) {
 	if err != nil {
 		return shopifyResponse.SingleOrder, err
 	}
-
-	//fmt.Printf("[PlaceOrder] - Order: %v\n", shopifyResponse.SingleOrder)
 
 	return shopifyResponse.SingleOrder, nil
 }
@@ -165,7 +161,7 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 	itemsInCartURLStr := cartURLStr + strings.Join(itemsInfo, ",")
 
 	completeURL := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, itemsInCartURLStr)
-	log.Printf("[ShippingOptions] - Request URL: %s", completeURL)
+	jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
 	cookieJar, _ := cookiejar.New(nil)
 
 	client := &http.Client{
@@ -178,7 +174,7 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 	defer resp.Body.Close()
 
 	if err != nil {
-		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+		jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
 		return shopifyResponse.ShippingRates, err
 	}
 
@@ -196,7 +192,7 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 	urlStr = urlStr + v.Encode()
 
 	completeURL = fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
-	log.Printf("\n\n[ShippingOptions] - Request URL: %s", completeURL)
+	jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
 
 	r, err = http.NewRequest("GET", completeURL, nil)
 
@@ -205,17 +201,15 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 	defer resp.Body.Close()
 
 	if err != nil {
-		fmt.Printf("[ShippingOptions] - Error executing request : %s", err)
+		jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
 		return shopifyResponse.ShippingRates, err
 	}
 
-	//bodyResp, _ := ioutil.ReadAll(resp.Body)
-	//fmt.Printf("\n\n *****RESPONSE: %#v\n", string(bodyResp))
 	err = json.NewDecoder(resp.Body).Decode(shopifyResponse)
 
 	if err != nil {
-		fmt.Printf("\n[ShippingOptions] - Decoding error: %#v", err)
-		fmt.Printf("\n[ShippingOptions] - Response: %#v", resp.Body)
+		jww.ERROR.Printf("[ShippingOptions] - Decoding error: %#v", err)
+		jww.ERROR.Printf("[ShippingOptions] - Response: %#v", resp.Body)
 		return shopifyResponse.ShippingRates, err
 	}
 
@@ -243,12 +237,11 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 
 func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body interface{}, payload string) error {
 	url := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
-	log.Printf("\n\n[makeRequest] - Request URL: %s", url)
+	jww.INFO.Printf("[makeRequest] - Request URL: %s", url)
 	client := &http.Client{}
 	buf := new(bytes.Buffer)
 
 	if payload != "" {
-		//fmt.Printf("\n\n\nPAYLOAD string: %#v", payload)
 		buf = bytes.NewBuffer([]byte(payload))
 	}
 	r, err := http.NewRequest(method, url, buf)
@@ -260,25 +253,22 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		fmt.Printf("[makeRequest] - 404 on executing request: %s\n", url)
+		jww.ERROR.Printf("[makeRequest] - 404 on executing request: %s\n", url)
 	} else if resp.StatusCode == 429 {
-		fmt.Printf("[makeRequest] - Rate limited!\n")
+		jww.ERROR.Printf("[makeRequest] - Rate limited!\n")
 		rateLimitErr := errors.New("API rate limit exceeded")
 		return rateLimitErr
 	}
 	if err != nil {
-		fmt.Printf("[makeRequest] - Error executing request : %s", err)
+		jww.ERROR.Printf("[makeRequest] - Error executing request : %s", err)
 		return err
 	}
-
-	//bodyResp, _ := ioutil.ReadAll(resp.Body)
-	//fmt.Printf("\n\n *****RESPONSE: %#v\n", string(bodyResp))
 
 	err = json.NewDecoder(resp.Body).Decode(body)
 
 	if err != nil {
-		fmt.Printf("\n[makeRequest] - Decoding error: %#v", err)
-		fmt.Printf("\n[makeRequest] - Response: %#v", resp.Body)
+		jww.ERROR.Printf("[makeRequest] - Decoding error: %#v", err)
+		jww.ERROR.Printf("[makeRequest] - Response: %#v", resp.Body)
 		return err
 	}
 
