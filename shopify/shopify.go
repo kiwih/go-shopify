@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 )
 
@@ -39,13 +40,15 @@ const (
 type Shopify struct {
 	shopifyDomain      string
 	shopifySecretToken string
+	// we need the public Store URL because with Redirect shipping_rates.json doesn't work
+	shopifyPublicURL string
 
 	Products []Product
 }
 
 // NewClient inits shopify client
-func NewClient(domain string, secrettoken string) Shopify {
-	shop := Shopify{shopifyDomain: domain, shopifySecretToken: secrettoken}
+func NewClient(domain string, secrettoken string, publicURL string) Shopify {
+	shop := Shopify{shopifyDomain: domain, shopifySecretToken: secrettoken, shopifyPublicURL: publicURL}
 	return shop
 }
 
@@ -191,11 +194,10 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 
 	urlStr = urlStr + v.Encode()
 
-	completeURL = fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, urlStr)
+	completeURL = fmt.Sprintf("%s%s", shopifyClient.shopifyPublicURL, urlStr)
 	jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
 
 	r, err = http.NewRequest("GET", completeURL, nil)
-
 	resp, err = client.Do(r)
 
 	defer resp.Body.Close()
@@ -211,6 +213,11 @@ func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, erro
 		jww.ERROR.Printf("[ShippingOptions] - Decoding error: %#v", err)
 		jww.ERROR.Printf("[ShippingOptions] - Response: %#v", resp.Body)
 		return shopifyResponse.ShippingRates, err
+	}
+
+	if shopifyResponse.Error != nil {
+		genericError := errors.New(strings.Join(shopifyResponse.Error, ", "))
+		return shopifyResponse.ShippingRates, genericError
 	}
 
 	// Address not supported error handling

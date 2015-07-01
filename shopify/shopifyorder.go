@@ -308,4 +308,5 @@ type ShippingRatesResponse struct {
 	Zip      []string `json:"zip,omitempty"`
 	Province []string `json:"province,omitempty"`
 	Country  []string `json:"country,omitempty"`
+	Error    []string `json:"error,omitempty"`
 }
