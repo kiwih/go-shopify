@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -144,7 +145,6 @@ func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) (Order, error) {
 	if err != nil {
 		return shopifyResponse.SingleOrder, err
 	}
-
 	return shopifyResponse.SingleOrder, nil
 }
 
@@ -265,6 +265,12 @@ func (shopifyClient *Shopify) makeRequest(method string, urlStr string, body int
 		jww.ERROR.Printf("[makeRequest] - Rate limited!\n")
 		rateLimitErr := errors.New("API rate limit exceeded")
 		return rateLimitErr
+	} else if resp.StatusCode == 422 {
+		message, _ := ioutil.ReadAll(resp.Body)
+		message = bytes.Replace(message, []byte("\\u003e"), []byte(">"), -1)
+		jww.ERROR.Printf("[makeRequest] - %s\n", message)
+		inventoryErr := errors.New(string(message))
+		return inventoryErr
 	}
 	if err != nil {
 		jww.ERROR.Printf("[makeRequest] - Error executing request : %s", err)
