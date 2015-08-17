@@ -267,6 +267,7 @@ type Fulfillment struct {
 // Order maps the shopify Order
 type Order struct {
 	ID                 int           `json:"id,omitempty"`
+	Name               string        `json:"name,omitempty"`
 	Customer           Customer      `json:"customer"`
 	Email              string        `json:"email,omitempty"`
 	BillingAddress     Address       `json:"billing_address"`
@@ -287,7 +288,8 @@ type Order struct {
 
 // OrderResponse models the shopify API response for order
 type OrderResponse struct {
-	SingleOrder Order `json:"order"`
+	SingleOrder Order   `json:"order"`
+	Orders      []Order `json:"orders"`
 }
 
 // ShippingRate models the shopify ShippingRate object

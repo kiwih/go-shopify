@@ -121,6 +121,28 @@ func (shopifyClient *Shopify) GetOrder(shopifyID string) (Order, error) {
 	return shopifyResponse.SingleOrder, nil
 }
 
+// GetOrderByName gets order by Order Name
+func (shopifyClient *Shopify) GetOrderByName(shopifyOrderName string) (Order, error) {
+	// adding "&status=any" allows to retrieve canceled orders also
+	urlStr := "admin/orders.json?name=" + shopifyOrderName + "&status=any"
+	var shopifyResponse = new(OrderResponse)
+
+	err := shopifyClient.makeRequest("GET", urlStr, shopifyResponse, "")
+	if err != nil {
+		return shopifyResponse.SingleOrder, err
+	}
+
+	if len(shopifyResponse.Orders) > 0 {
+		jww.INFO.Printf("[GetOrderByName] - Order id: %s\n", strconv.Itoa(shopifyResponse.Orders[0].ID))
+
+		return shopifyResponse.Orders[0], nil
+	}
+
+	jww.INFO.Printf("[GetOrderByName] - No active order with name '%s'", shopifyOrderName)
+	return shopifyResponse.SingleOrder, err
+
+}
+
 // CancelOrder deletes order by ID
 func (shopifyClient *Shopify) CancelOrder(shopifyID string) (Order, error) {
 	urlStr := "admin/orders/" + shopifyID + "/cancel.json"
