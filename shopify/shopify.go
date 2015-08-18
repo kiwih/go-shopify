@@ -41,7 +41,7 @@ const (
 type Shopify struct {
 	shopifyDomain      string
 	shopifySecretToken string
-	// we need the public Store URL because with Redirect shipping_rates.json doesn't work
+	// we need the public Store URL because shipping_rates.json doesn't work with Redirect
 	shopifyPublicURL string
 
 	Products []Product
