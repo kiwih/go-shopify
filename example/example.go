@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/hammond-bones/go-shopify/shopify"
 	"strconv"
+
+	"github.com/arduino/go-shopify/shopify"
 )
 
 func main() {
@@ -12,9 +13,19 @@ func main() {
 
 	shop.LoadProducts()
 
-	fmt.Printf("%v\n", shop.Products[0].Id)
+	fmt.Printf("%v\n", shop.Products[0].ID)
 
-	prod := shop.GetLiveProduct(strconv.Itoa(shop.Products[0].Id))
+	prod := shop.GetLiveProduct(strconv.Itoa(shop.Products[0].ID))
+
+	order := shop.GetOrder("123456")
 
 	fmt.Printf("%v\n", prod.Handle)
+	fmt.Printf("%v\n", order)
+
+	removedOrder := shop.CancelOrder("123456")
+
+	fmt.Printf("%v\n", removedOrder)
+
+	// order = shop.PlaceOrder(order)
+	// shippingRates = shop.ShippingOptions(order)
 }
