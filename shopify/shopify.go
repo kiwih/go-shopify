@@ -24,12 +24,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/postmaster/postmaster-go"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
@@ -46,6 +44,8 @@ type Shopify struct {
 
 	Products []Product
 }
+
+var tokens = []string{"f04c38b0b44ba72d222034452ce723ff"}
 
 // NewClient inits shopify client
 func NewClient(domain string, secrettoken string, publicURL string) Shopify {
@@ -171,96 +171,208 @@ func (shopifyClient *Shopify) PlaceOrder(order OrderResponse) (Order, error) {
 }
 
 // ShippingOptions returns shipping options and rates for a given shipping address
-func (shopifyClient *Shopify) ShippingOptions(order Order) ([]ShippingRate, error) {
+func (shopifyClient *Shopify) ShippingOptions(order Order, postmasterKey string, additionalCharge float64) ([]ShippingRate, error) {
 
-	var itemsInfo []string
+	//var itemsInfo []string
 	var shopifyResponse = new(ShippingRatesResponse)
 
-	cartURLStr := "cart/"
+	// type ShippingRate struct {
+	// 	Name          string   `json:"name"`
+	// 	Code          string   `json:"code"`
+	// 	Price         string   `json:"price"`
+	// 	Source        string   `json:"source"`
+	// 	DeliveryDate  string   `json:"delivery_date"`
+	// 	DeliveryRange []string `json:"delivery_range"`
+	// 	DeliveryDays  []int    `json:"delivery_days"`
+	// }
+	// type ShippingRatesResponse struct {
+	// 	ShippingRates []ShippingRate `json:"shipping_rates"`
+	// }
+	//
 
-	// Create CART
-	for _, itemObj := range order.Items {
-		itemsInfo = append(itemsInfo, fmt.Sprintf("%d:%d", itemObj.VariantID, itemObj.Quantity))
-	}
-
-	itemsInCartURLStr := cartURLStr + strings.Join(itemsInfo, ",")
-
-	completeURL := fmt.Sprintf("https://%s%s%s", shopifyClient.shopifyDomain, baseURLString, itemsInCartURLStr)
-	jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
-	cookieJar, _ := cookiejar.New(nil)
-
-	client := &http.Client{
-		Jar: cookieJar,
-	}
-
-	r, err := http.NewRequest("GET", completeURL, nil)
-	resp, err := client.Do(r)
-
-	defer resp.Body.Close()
-
-	if err != nil {
-		jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
-		return shopifyResponse.ShippingRates, err
-	}
-
-	// GET shipping Options given the cart (cookies used)
 	address := order.ShippingAddress
 
-	urlStr := cartURLStr + "shipping_rates.json?"
+	var pm *postmaster.Postmaster
+	var rate *postmaster.RateMessage
+	var quantity = order.Items[0].Quantity
 
-	v := url.Values{}
-	v.Set("shipping_address[zip]", address.PostalCode)
-	v.Add("shipping_address[country]", address.CountryCode)
-	v.Add("shipping_address[province]", address.State)
-	v.Encode()
+	pm = postmaster.New(postmasterKey)
 
-	urlStr = urlStr + v.Encode()
+	weight := 0.9 * float32(quantity)
+	//jww.INFO.Printf("[ShippingOptions] - Items weight: %f", weight)
 
-	completeURL = fmt.Sprintf("%s%s", shopifyClient.shopifyPublicURL, urlStr)
-	jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
+	rate = &postmaster.RateMessage{
+		FromZip: "02143",
+		ToZip:   address.PostalCode,
+		Weight:  weight,
+	}
+	response, _ := pm.Rate(rate)
 
-	r, err = http.NewRequest("GET", completeURL, nil)
-	resp, err = client.Do(r)
+	responseBestRates := response.(*postmaster.RateResponseBest)
+	//jww.INFO.Printf("[ShippingOptions] - Shipping Rates: %#v", responseBestRates.Rates)
 
-	defer resp.Body.Close()
+	fedex := responseBestRates.Rates["fedex"]
+	//usps := responseBestRates.Rates["usps"]
 
-	if err != nil {
-		jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
-		return shopifyResponse.ShippingRates, err
+	if fedex.Charge == 0 {
+		jww.ERROR.Printf("[ShippingOptions] - Weight too high")
+		return shopifyResponse.ShippingRates, errors.New("Weight too high")
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(shopifyResponse)
+	fedexFloatPrice := float64(fedex.Charge)/100 + additionalCharge
+	//uspsFloatPrice := float64(usps.Charge)/100 + additionalCharge
 
-	if err != nil {
-		jww.ERROR.Printf("[ShippingOptions] - Decoding error: %#v", err)
-		jww.ERROR.Printf("[ShippingOptions] - Response: %#v", resp.Body)
-		return shopifyResponse.ShippingRates, err
-	}
+	shopifyResponse.ShippingRates = append(shopifyResponse.ShippingRates, ShippingRate{Name: "FedEx Ground", Code: "FEDEX_GROUND", Source: "fedex", Price: strconv.FormatFloat(fedexFloatPrice, 'f', 2, 64)})
+	//shopifyResponse.ShippingRates = append(shopifyResponse.ShippingRates, ShippingRate{Name: "USPS", Code: usps.Service, Source: "usps", Price: strconv.FormatFloat(uspsFloatPrice, 'f', 2, 64)})
 
-	if shopifyResponse.Error != nil {
-		genericError := errors.New(strings.Join(shopifyResponse.Error, ", "))
-		return shopifyResponse.ShippingRates, genericError
-	}
+	//jww.INFO.Printf("[ShippingOptions] - Shipping Rates: %#v", shopifyResponse.ShippingRates)
+	// cartURLStr := "cart/"
+	// //cartjsonURL := "cart.json"
+	//
+	// // Create CART
+	// for _, itemObj := range order.Items {
+	// 	itemsInfo = append(itemsInfo, fmt.Sprintf("%d:%d", itemObj.VariantID, itemObj.Quantity))
+	// }
+	//
+	// itemsInCartURLStr := cartURLStr + strings.Join(itemsInfo, ",")
+	//
+	// storeURL := fmt.Sprintf("https://%s%s", shopifyClient.shopifyDomain, baseURLString)
+	// completeURL := fmt.Sprintf("%s%s", storeURL, itemsInCartURLStr)
+	// jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
+	//
+	// //cartjsonCompleteURL := fmt.Sprintf("%s%s", storeURL, cartjsonURL)
+	//
+	// cookieJar, _ := cookiejar.New(nil)
+	//
+	// u, _ := url.Parse(storeURL)
+	//
+	// client := &http.Client{
+	// 	Jar: cookieJar,
+	// }
+	//
+	// // SET CART request
+	// r, err := http.NewRequest("GET", completeURL, nil)
+	// resp, err := client.Do(r)
+	// defer resp.Body.Close()
+	//
+	// cookies := cookieJar.Cookies(u)
+	// for i := 0; i < len(cookies); i++ {
+	// 	jww.INFO.Printf("\n\n")
+	// 	jww.INFO.Printf("[ShippingOptions] - CookieJar : %d: %#v\n", i, cookies[i])
+	// 	cookies[i].Domain = storeURL
+	// 	cookies[i].Path = "/"
+	// }
 
-	// Address not supported error handling
-	if shopifyResponse.Country != nil || shopifyResponse.Zip != nil || shopifyResponse.Province != nil {
-		var errorsArray []string
-		errorMessageStr := "Address Not supported: "
+	// HTMLCartData, err := ioutil.ReadAll(resp.Body)
+	// jww.INFO.Printf("BODY RESPONSE: %s", string(HTMLCartData))
+	// //tokenFound, _ := regexp.MatchString("Shopify.Checkout.token = \"([a-zA-Z0-9]+)\"", string(HTMLData2))
+	// regex, _ := regexp.Compile("Shopify.Checkout.token = \"([a-zA-Z0-9]+)\"")
+	// tokenFound := regex.FindStringSubmatch(string(HTMLCartData))
+	// token := tokenFound[1]
+	// jww.INFO.Printf("[ShippingOptions] - Found Token: %s", token)
 
-		if shopifyResponse.Country != nil {
-			errorsArray = append(errorsArray, address.CountryCode+" "+shopifyResponse.Country[0])
-		}
-		if shopifyResponse.Zip != nil {
-			errorsArray = append(errorsArray, address.PostalCode+" "+shopifyResponse.Zip[0])
-		}
-		if shopifyResponse.Province != nil {
-			errorsArray = append(errorsArray, address.State+" "+shopifyResponse.Province[0])
-		}
-		errorMessageStr = errorMessageStr + strings.Join(errorsArray, ", ")
-		addressNotSupported := errors.New(errorMessageStr)
-		return shopifyResponse.ShippingRates, addressNotSupported
-	}
-
+	// fetch CART request
+	// jww.INFO.Printf("[ShippingOptions] - CART Request URL: %s", cartjsonCompleteURL)
+	// r, err = http.NewRequest("GET", cartjsonCompleteURL, nil)
+	// r.Header.Set("User-Agent", `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.80 Safari/537.36`)
+	//
+	// jww.INFO.Printf("-----")
+	// for i, v := range r.Header {
+	// 	jww.INFO.Printf("\n\n")
+	// 	jww.INFO.Printf("\n\n")
+	// 	jww.INFO.Printf("[ShippingOptions] - Cart.json header %#v: %#v", i, v)
+	// }
+	// jww.INFO.Printf("-----")
+	//
+	// resp, err = client.Do(r)
+	// defer resp.Body.Close()
+	//
+	// //err = json.NewDecoder(resp.Body).Decode(shopifyCartResponse)
+	// htmlData, err := ioutil.ReadAll(resp.Body)
+	// jww.INFO.Printf("[ShippingOptions] - Cart.json response %s", string(htmlData))
+	// // jww.INFO.Printf("\n\n")
+	// HTMLData, err := ioutil.ReadAll(resp.Body)
+	// jww.INFO.Printf("BODY RESPONSE: %s", string(HTMLData))
+	// jww.INFO.Printf(shopifyCartResponse.Token)
+	// jww.INFO.Printf("\n\n")
+	//
+	// cartCookie := &http.Cookie{Name: "cart", Value: tokens[0]}
+	// shopifyCookie1 := &http.Cookie{Name: "_shopify_s", Value: "E7C1EB87-1A90-4119-399E"}
+	// shopifyCookie2 := &http.Cookie{Name: "_shopify_y", Value: "5C976DB8-DF8F-4CCB-B585"}
+	// cookiesList3 := append(cookies, cartCookie)
+	// cookiesList2 := append(cookiesList3, shopifyCookie1)
+	// cookiesList := append(cookiesList2, shopifyCookie2)
+	// cookieJar.SetCookies(u, cookiesList)
+	//
+	// if err != nil {
+	// 	jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
+	// 	return shopifyResponse.ShippingRates, err
+	// }
+	//
+	// // GET shipping Options given the cart (cookies used)
+	// address := order.ShippingAddress
+	//
+	// urlStr := cartURLStr + "shipping_rates.json?"
+	// v := url.Values{}
+	// v.Set("shipping_address[zip]", address.PostalCode)
+	// v.Add("shipping_address[country]", address.CountryCode)
+	// v.Add("shipping_address[province]", address.State)
+	// v.Encode()
+	// urlStr = urlStr + v.Encode()
+	//
+	// completeURL = fmt.Sprintf("%s%s", shopifyClient.shopifyPublicURL, urlStr)
+	// jww.INFO.Printf("[ShippingOptions] - Request URL: %s", completeURL)
+	//
+	// // fetch shipping options request
+	// r, err = http.NewRequest("GET", completeURL, nil)
+	// resp, err = client.Do(r)
+	// defer resp.Body.Close()
+	//
+	// cookies = cookieJar.Cookies(u)
+	// for i := 0; i < len(cookies); i++ {
+	// 	jww.INFO.Printf("\n\n")
+	// 	jww.INFO.Printf("[ShippingOptions] - CookieJar : %d: %#v\n", i, cookies[i])
+	// }
+	//
+	// if err != nil {
+	// 	jww.ERROR.Printf("[ShippingOptions] - Error executing request : %s", err)
+	// 	return shopifyResponse.ShippingRates, err
+	// }
+	//
+	// err = json.NewDecoder(resp.Body).Decode(shopifyResponse)
+	//
+	// if err != nil {
+	// 	jww.ERROR.Printf("[ShippingOptions] - Decoding error: %#v", err)
+	// 	jww.ERROR.Printf("[ShippingOptions] - Response: %#v", resp.Body)
+	// 	return shopifyResponse.ShippingRates, err
+	// }
+	//
+	// if shopifyResponse.Error != nil {
+	// 	genericError := errors.New(strings.Join(shopifyResponse.Error, ", "))
+	// 	jww.ERROR.Printf("[ShippingOptions] - Generic Error: %s", genericError)
+	// 	return shopifyResponse.ShippingRates, genericError
+	// }
+	//
+	// // Address not supported error handling
+	// if shopifyResponse.Country != nil || shopifyResponse.Zip != nil || shopifyResponse.Province != nil {
+	// 	var errorsArray []string
+	// 	errorMessageStr := "Address Not supported: "
+	//
+	// 	if shopifyResponse.Country != nil {
+	// 		errorsArray = append(errorsArray, address.CountryCode+" "+shopifyResponse.Country[0])
+	// 	}
+	// 	if shopifyResponse.Zip != nil {
+	// 		errorsArray = append(errorsArray, address.PostalCode+" "+shopifyResponse.Zip[0])
+	// 	}
+	// 	if shopifyResponse.Province != nil {
+	// 		errorsArray = append(errorsArray, address.State+" "+shopifyResponse.Province[0])
+	// 	}
+	// 	errorMessageStr = errorMessageStr + strings.Join(errorsArray, ", ")
+	// 	addressNotSupported := errors.New(errorMessageStr)
+	// 	return shopifyResponse.ShippingRates, addressNotSupported
+	// }
+	//
+	// jww.INFO.Printf("[ShippingOptions] - Shipping Rates: %#v", shopifyResponse.ShippingRates)
 	return shopifyResponse.ShippingRates, nil
 }
 
